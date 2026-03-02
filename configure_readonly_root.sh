@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Exit on errors, print commands, ignore unset variables
+# Exit on errors, print commands
+# Note: +u allows unset variables for compatibility with the chroot environment
 set -ex +u
 
 echo "Configuring read-only root filesystem with overlay mount for PhotonVision storage"
@@ -41,6 +42,13 @@ echo "Storage partition will be: ${storage_device}"
 sed -i 's|\([[:space:]]/[[:space:]].*[[:space:]]defaults\)|\1,ro|' /etc/fstab
 # Also handle case where there might be other options already
 sed -i 's|\([[:space:]]/[[:space:]].*[[:space:]]errors=remount-ro\)|\1,ro|' /etc/fstab
+
+# Verify that ro option was added
+if ! grep -E '[[:space:]]/[[:space:]].*ro' /etc/fstab | grep -v '^#' >/dev/null; then
+    echo "Warning: Could not verify 'ro' option was added to root filesystem"
+    echo "Current fstab root entry:"
+    grep -E '[[:space:]]/[[:space:]]' /etc/fstab | grep -v '^#'
+fi
 
 # Add the storage partition mount
 echo "# PhotonVision writable storage partition" >> /etc/fstab

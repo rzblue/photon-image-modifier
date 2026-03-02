@@ -35,6 +35,7 @@ echo "Initial partition layout:"
 parted -m --script "$loopdev" unit s print
 
 # Simulate partition creation logic from mount_image.sh
+# Note: Using 5MB for testing instead of production 512MB for speed
 storage_partition_mb=5
 rootpartition=2
 

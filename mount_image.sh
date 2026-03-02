@@ -159,7 +159,7 @@ if [[ ${storage_partition_mb} -gt 0 ]]; then
     # Calculate start of storage partition (1MB after root partition for alignment)
     storage_partstart=$((rootfs_partend_sector + 2048))
     
-    # Calculate size in sectors (assuming 512 byte sectors)
+    # Calculate size in sectors (2048 sectors per MB, assuming 512-byte sectors)
     storage_size_sectors=$((storage_partition_mb * 2048))
     storage_partend=$((storage_partstart + storage_size_sectors))
     
