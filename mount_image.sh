@@ -121,14 +121,6 @@ fi
 
 (cat /dev/zero > "${rootdir}/zeros" 2>/dev/null || true); sync; rm "${rootdir}/zeros";
 
-# Check for storage partition request marker file
-storage_partition_mb=0
-if [[ -f "${rootdir}/PHOTON_STORAGE_PARTITION_MB" ]]; then
-    storage_partition_mb=$(cat "${rootdir}/PHOTON_STORAGE_PARTITION_MB")
-    rm -f "${rootdir}/PHOTON_STORAGE_PARTITION_MB"
-    echo "Storage partition requested: ${storage_partition_mb} MB"
-fi
-
 umount --recursive "${rootdir}"
 
 echo "Resizing root filesystem to minimal size."
@@ -146,37 +138,6 @@ if [ "$rootfs_partoldend" -gt "$rootfs_partend" ]; then
     echo y | parted ---pretend-input-tty "${loopdev}" unit B resizepart "${rootpartition}" "${rootfs_partend}"
 else
     echo "Rootfs partition not resized as it was not shrunk"
-fi
-
-# Create storage partition if requested
-if [[ ${storage_partition_mb} -gt 0 ]]; then
-    echo "Creating storage partition of ${storage_partition_mb} MB"
-    storage_partition=$((rootpartition + 1))
-    
-    # Get the end of the root partition
-    rootfs_partend_sector=$(parted -m --script "${loopdev}" unit s print | grep "^${rootpartition}:" | awk -F ":" '{print $3}' | tr -d 's')
-    
-    # Calculate start of storage partition (1MB after root partition for alignment)
-    storage_partstart=$((rootfs_partend_sector + 2048))
-    
-    # Calculate size in sectors (2048 sectors per MB, assuming 512-byte sectors)
-    storage_size_sectors=$((storage_partition_mb * 2048))
-    storage_partend=$((storage_partstart + storage_size_sectors))
-    
-    # Create the partition
-    echo "Creating partition ${storage_partition} from sector ${storage_partstart} to ${storage_partend}"
-    parted --script "${loopdev}" unit s mkpart primary ext4 ${storage_partstart} ${storage_partend}
-    
-    # Refresh partition table
-    partprobe "${loopdev}"
-    sync
-    sleep 2
-    
-    # Format the partition
-    echo "Formatting storage partition as ext4"
-    mkfs.ext4 -F "${loopdev}p${storage_partition}" -L photon-storage
-    
-    echo "Storage partition created and formatted successfully"
 fi
 
 free_space=$(parted -m --script "${loopdev}" unit B print free | tail -1)

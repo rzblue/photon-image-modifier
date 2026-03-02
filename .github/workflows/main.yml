@@ -112,6 +112,14 @@ jobs:
             chmod +x "./install_common.sh"
             "./install_common.sh"
 
+    - name: Create storage partition for Orange Pi 5
+      # Add storage partition for read-only root filesystem with overlay
+      if: ${{ matrix.script == './install_opi5.sh' }}
+      run: |
+        echo "Creating storage partition for Orange Pi 5 image"
+        chmod +x ./create_storage_partition.sh
+        sudo ./create_storage_partition.sh "${{ steps.install_deps.outputs.image }}" 512
+
     - name: Compress built image
       # Compress the standard images
       if: ${{ ! startsWith(matrix.name, 'rubik') }}

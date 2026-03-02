@@ -106,8 +106,4 @@ rm -rf /usr/share/locale/
 chmod +x ./configure_readonly_root.sh
 ./configure_readonly_root.sh
 
-# Create a marker file to request storage partition creation (512MB)
-# This will be read by the build system after chroot
-echo "512" > /PHOTON_STORAGE_PARTITION_MB
-
 umount /CIDATA
