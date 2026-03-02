@@ -4,12 +4,12 @@
 # Note: +u allows unset variables for compatibility with the chroot environment
 set -ex +u
 
-echo "Configuring read-only root filesystem with overlay mount for PhotonVision storage"
+echo "Configuring read-only root filesystem with direct mount for PhotonVision storage"
 
 # Create the mount point for the storage partition
-mkdir -p /mnt/photon-storage
+mkdir -p /opt/photonvision/photon-storage
 
-# Modify fstab to configure read-only root and overlay mount
+# Modify fstab to configure read-only root and storage mount
 # First, backup the original fstab
 cp /etc/fstab /etc/fstab.backup
 
@@ -50,34 +50,9 @@ if ! grep -E '[[:space:]]/[[:space:]].*ro' /etc/fstab | grep -v '^#' >/dev/null;
     grep -E '[[:space:]]/[[:space:]]' /etc/fstab | grep -v '^#'
 fi
 
-# Add the storage partition mount
-echo "# PhotonVision writable storage partition" >> /etc/fstab
-echo "${storage_device} /mnt/photon-storage ext4 defaults,noatime 0 2" >> /etc/fstab
-
-# Add overlay mount for /opt/photonvision
-echo "# Overlay mount for PhotonVision data directory" >> /etc/fstab
-echo "overlay /opt/photonvision overlay lowerdir=/opt/photonvision,upperdir=/mnt/photon-storage/photonvision-upper,workdir=/mnt/photon-storage/photonvision-work,x-systemd.requires=/mnt/photon-storage 0 0" >> /etc/fstab
-
-# Create a systemd service to initialize the overlay directories on first boot
-cat > /etc/systemd/system/photonvision-overlay-init.service << 'EOF'
-[Unit]
-Description=Initialize PhotonVision overlay directories
-After=mnt-photon\x2dstorage.mount
-Before=opt-photonvision.mount
-ConditionPathExists=!/mnt/photon-storage/photonvision-upper
-
-[Service]
-Type=oneshot
-ExecStart=/bin/mkdir -p /mnt/photon-storage/photonvision-upper
-ExecStart=/bin/mkdir -p /mnt/photon-storage/photonvision-work
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-chmod 644 /etc/systemd/system/photonvision-overlay-init.service
-systemctl enable photonvision-overlay-init.service
+# Add the storage partition mount directly at /opt/photonvision/photon-storage
+echo "# PhotonVision writable storage directory" >> /etc/fstab
+echo "${storage_device} /opt/photonvision/photon-storage ext4 defaults,noatime 0 2" >> /etc/fstab
 
 echo "Read-only root filesystem configuration complete"
 echo "fstab contents:"

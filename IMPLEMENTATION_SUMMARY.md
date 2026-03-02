@@ -6,7 +6,7 @@ The initial implementation incorrectly modified `mount_image.sh`, which is not u
 
 ## Solution
 
-Implemented a post-build approach that works with the existing workflow without modifying the external action:
+Implemented a post-build approach that works with the existing workflow without modifying the external action. The implementation uses a simple direct mount approach rather than overlayfs for easier maintenance and understanding.
 
 ### Architecture
 
@@ -47,9 +47,8 @@ Implemented a post-build approach that works with the existing workflow without 
 
 1. **configure_readonly_root.sh** (runs in chroot)
    - Modifies `/etc/fstab` to set root as read-only
-   - Adds storage partition mount at `/mnt/photon-storage`
-   - Configures overlay mount for `/opt/photonvision`
-   - Creates systemd service for overlay initialization
+   - Creates mount point at `/opt/photonvision/photon-storage`
+   - Adds direct mount of storage partition (no overlay complexity)
 
 2. **create_storage_partition.sh** (runs post-build)
    - Manipulates the already-built image
@@ -100,16 +99,22 @@ Implemented a post-build approach that works with the existing workflow without 
 
 ### First Boot
 1. System boots with read-only root filesystem
-2. Storage partition (`/dev/mmcblk0p3`) mounts at `/mnt/photon-storage`
-3. `photonvision-overlay-init.service` creates overlay directories if needed
-4. Overlay mount combines read-only `/opt/photonvision` with writable upper/work dirs
-5. PhotonVision starts and can write to `/opt/photonvision` (writes go to storage partition)
+2. Storage partition (`/dev/mmcblk0p3`) automatically mounts at `/opt/photonvision/photon-storage`
+3. PhotonVision starts and can write directly to `/opt/photonvision/photon-storage/`
 
 ### Normal Operation
 - Root filesystem: Read-only, protected from corruption
-- Storage partition: Writable, isolated user data
-- Overlay: Unified view at `/opt/photonvision`
-- PhotonVision: Full read/write access to configuration and data
+- Storage partition: Writable at `/opt/photonvision/photon-storage/`
+- PhotonVision: Stores all writable data in the storage subdirectory
+- Simple and straightforward: No overlay complexity to debug
+
+## Benefits of Direct Mount Approach
+
+1. **Simplicity**: Direct mount is easier to understand than overlayfs
+2. **Maintainability**: Fewer moving parts, easier to debug
+3. **Clear Separation**: Obvious distinction between read-only and writable areas
+4. **PhotonVision Integration**: PhotonVision explicitly uses `/opt/photonvision/photon-storage/` for writable data
+5. **No Systemd Services**: No need for overlay initialization services
 
 ## Future Enhancements
 
