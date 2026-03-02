@@ -73,45 +73,16 @@ STORAGE_PARTSTART=$((ROOTFS_PARTEND_SECTOR + SECTORS_PER_MB))
 STORAGE_SIZE_SECTORS=$((STORAGE_SIZE_MB * SECTORS_PER_MB))
 STORAGE_PARTEND=$((STORAGE_PARTSTART + STORAGE_SIZE_SECTORS))
 
-# Create the storage partition
 echo ""
-echo "Creating storage partition ${STORAGE_PARTITION}"
+echo "Planned storage partition ${STORAGE_PARTITION}"
 echo "  Start: sector ${STORAGE_PARTSTART}"
 echo "  End: sector ${STORAGE_PARTEND}"
 echo "  Size: ${STORAGE_SIZE_MB}MB (${STORAGE_SIZE_SECTORS} sectors)"
 
-sudo parted --script "$LOOPDEV" unit s mkpart primary ext4 ${STORAGE_PARTSTART} ${STORAGE_PARTEND}
-
-# Refresh partition table
-sudo partprobe "$LOOPDEV"
-sync
-sleep 2
-
-# Verify partition was created
-if [ ! -b "${LOOPDEV}p${STORAGE_PARTITION}" ]; then
-    echo "ERROR: Storage partition ${LOOPDEV}p${STORAGE_PARTITION} was not created"
-    exit 1
-fi
-
-echo "✓ Partition created successfully"
-
-# Format the partition as ext4
+# Extend the image file to accommodate the new partition BEFORE creating it
+# The image was shrunk by pack_image.sh, so we need to extend it first
 echo ""
-echo "Formatting storage partition as ext4..."
-sudo mkfs.ext4 -F "${LOOPDEV}p${STORAGE_PARTITION}" -L photon-storage
-
-# Verify formatting
-FS_TYPE=$(sudo blkid -o value -s TYPE "${LOOPDEV}p${STORAGE_PARTITION}")
-FS_LABEL=$(sudo blkid -o value -s LABEL "${LOOPDEV}p${STORAGE_PARTITION}")
-
-echo "✓ Partition formatted"
-echo "  Filesystem: $FS_TYPE"
-echo "  Label: $FS_LABEL"
-
-# Extend the image file to accommodate the new partition
-# The image was shrunk by pack_image.sh, so we need to extend it
-echo ""
-echo "Extending image file..."
+echo "Extending image file to accommodate new partition..."
 
 # Calculate new image size (add padding for alignment and GPT if needed)
 NEW_SIZE_SECTORS=$((STORAGE_PARTEND + SECTORS_PER_MB))
@@ -140,6 +111,37 @@ if [ "$PART_TYPE" = "gpt" ]; then
 fi
 
 echo "✓ Image extended to $NEW_SIZE_BYTES bytes"
+
+# Now create the storage partition
+echo ""
+echo "Creating storage partition ${STORAGE_PARTITION}"
+sudo parted --script "$LOOPDEV" unit s mkpart primary ext4 ${STORAGE_PARTSTART} ${STORAGE_PARTEND}
+
+# Refresh partition table
+sudo partprobe "$LOOPDEV"
+sync
+sleep 2
+
+# Verify partition was created
+if [ ! -b "${LOOPDEV}p${STORAGE_PARTITION}" ]; then
+    echo "ERROR: Storage partition ${LOOPDEV}p${STORAGE_PARTITION} was not created"
+    exit 1
+fi
+
+echo "✓ Partition created successfully"
+
+# Format the partition as ext4
+echo ""
+echo "Formatting storage partition as ext4..."
+sudo mkfs.ext4 -F "${LOOPDEV}p${STORAGE_PARTITION}" -L photon-storage
+
+# Verify formatting
+FS_TYPE=$(sudo blkid -o value -s TYPE "${LOOPDEV}p${STORAGE_PARTITION}")
+FS_LABEL=$(sudo blkid -o value -s LABEL "${LOOPDEV}p${STORAGE_PARTITION}")
+
+echo "✓ Partition formatted"
+echo "  Filesystem: $FS_TYPE"
+echo "  Label: $FS_LABEL"
 
 # Display final partition layout
 echo ""
