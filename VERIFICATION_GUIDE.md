@@ -81,35 +81,23 @@ cat /tmp/opi5_root/etc/fstab
 # Root partition should have 'ro' option
 # Example: UUID=xxx / ext4 defaults,ro 0 1
 
-# Storage partition mount
-# Example: /dev/mmcblk0p3 /mnt/photon-storage ext4 defaults,noatime 0 2
-
-# Overlay mount
-# Example: overlay /opt/photonvision overlay lowerdir=/opt/photonvision,...
+# Storage partition mount at /opt/photonvision/photon-storage
+# Example: /dev/mmcblk0p3 /opt/photonvision/photon-storage ext4 defaults,noatime 0 2
 ```
 
-### 6. Verify Systemd Service
-
-```bash
-# Check if overlay init service exists
-cat /tmp/opi5_root/etc/systemd/system/photonvision-overlay-init.service
-
-# Expected: Service file with mkdir commands for overlay directories
-```
-
-### 7. Verify Directory Structure
+### 6. Verify Directory Structure
 
 ```bash
 # Check that PhotonVision directory exists
 ls -la /tmp/opi5_root/opt/photonvision/
 
-# Check that mount point exists
-ls -ld /tmp/opi5_root/mnt/photon-storage/
+# Check that storage mount point exists
+ls -ld /tmp/opi5_root/opt/photonvision/photon-storage/
 
 # Expected: Both directories should exist
 ```
 
-### 8. Cleanup
+### 7. Cleanup
 
 ```bash
 # Unmount and detach
@@ -187,30 +175,21 @@ if ! grep -q "ro" "$MOUNT_POINT/etc/fstab"; then
 fi
 echo "✓ Root filesystem configured as read-only"
 
-if ! grep -q "/mnt/photon-storage" "$MOUNT_POINT/etc/fstab"; then
+if ! grep -q "/opt/photonvision/photon-storage" "$MOUNT_POINT/etc/fstab"; then
     echo "ERROR: Storage partition mount not found in fstab"
     sudo umount "$MOUNT_POINT"
     sudo losetup -d "$LOOPDEV"
     exit 1
 fi
-echo "✓ Storage partition mount configured"
+echo "✓ Storage partition mount configured at /opt/photonvision/photon-storage"
 
-if ! grep -q "overlay /opt/photonvision" "$MOUNT_POINT/etc/fstab"; then
-    echo "ERROR: Overlay mount not found in fstab"
+if grep -q "overlay /opt/photonvision" "$MOUNT_POINT/etc/fstab"; then
+    echo "ERROR: Overlay mount found (should not be present)"
     sudo umount "$MOUNT_POINT"
     sudo losetup -d "$LOOPDEV"
     exit 1
 fi
-echo "✓ Overlay mount configured"
-
-# Check systemd service
-if [ ! -f "$MOUNT_POINT/etc/systemd/system/photonvision-overlay-init.service" ]; then
-    echo "ERROR: photonvision-overlay-init.service not found"
-    sudo umount "$MOUNT_POINT"
-    sudo losetup -d "$LOOPDEV"
-    exit 1
-fi
-echo "✓ Systemd overlay init service exists"
+echo "✓ No overlay mount (direct mount implementation)"
 
 # Check directories
 if [ ! -d "$MOUNT_POINT/opt/photonvision" ]; then
@@ -221,8 +200,8 @@ if [ ! -d "$MOUNT_POINT/opt/photonvision" ]; then
 fi
 echo "✓ PhotonVision directory exists"
 
-if [ ! -d "$MOUNT_POINT/mnt/photon-storage" ]; then
-    echo "ERROR: /mnt/photon-storage directory not found"
+if [ ! -d "$MOUNT_POINT/opt/photonvision/photon-storage" ]; then
+    echo "ERROR: /opt/photonvision/photon-storage mount point not found"
     sudo umount "$MOUNT_POINT"
     sudo losetup -d "$LOOPDEV"
     exit 1
@@ -264,21 +243,20 @@ To test on actual Orange Pi 5 hardware:
 5. Verify storage partition:
    ```bash
    df -h | grep photon-storage
-   # Should show partition mounted at /mnt/photon-storage
+   # Should show partition mounted at /opt/photonvision/photon-storage
    
-   ls -la /mnt/photon-storage/
-   # Should show photonvision-upper and photonvision-work directories
+   ls -la /opt/photonvision/photon-storage/
+   # Should be empty on first boot
    ```
 
-6. Verify overlay:
+6. Test writable storage:
    ```bash
-   mount | grep "/opt/photonvision"
-   # Should show overlay mount
+   # Create a test file in storage
+   touch /opt/photonvision/photon-storage/test_file
+   # Should succeed
    
-   touch /opt/photonvision/test_file
-   # Should succeed (writes go to storage partition)
-   
-   ls -la /mnt/photon-storage/photonvision-upper/
+   # Verify it's actually on the storage partition
+   ls -la /opt/photonvision/photon-storage/
    # Should show test_file
    ```
 
@@ -289,14 +267,15 @@ To test on actual Orange Pi 5 hardware:
    
    # Access web UI at http://<ip>:5800
    # Make configuration changes and verify they persist across reboots
+   # All writable data should go to /opt/photonvision/photon-storage/
    ```
 
 ## Expected Behavior
 
 ✓ System boots successfully  
 ✓ Root filesystem is read-only  
-✓ Storage partition is mounted and writable  
-✓ PhotonVision can read/write configuration  
+✓ Storage partition is mounted at /opt/photonvision/photon-storage  
+✓ PhotonVision can read/write to photon-storage subdirectory  
 ✓ System can reboot without filesystem corruption  
 ✓ Configuration persists across reboots  
 
@@ -304,11 +283,11 @@ To test on actual Orange Pi 5 hardware:
 
 If verification fails:
 
-1. **Partition 3 doesn't exist**: Check mount_image.sh ran correctly, verify marker file was created
-2. **Wrong filesystem type**: Check mkfs.ext4 command in mount_image.sh
+1. **Partition 3 doesn't exist**: Check create_storage_partition.sh ran correctly in workflow
+2. **Wrong filesystem type**: Check mkfs.ext4 command in create_storage_partition.sh
 3. **fstab missing entries**: Check configure_readonly_root.sh ran in chroot
-4. **Boot failures**: Check fstab syntax, ensure systemd service is correct
-5. **Overlay not working**: Verify directories exist on storage partition, check mount options
+4. **Boot failures**: Check fstab syntax, verify mount point directory exists
+5. **Storage not writable**: Verify partition is mounted, check mount options
 
 ## CI Integration
 

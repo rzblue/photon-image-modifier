@@ -128,12 +128,6 @@ PhotonVision should be configured to store all writable data in `/opt/photonvisi
 
 The rest of `/opt/photonvision/` remains read-only on the system partition.
 
-1. **test_readonly_config.sh**: Tests fstab modification and systemd service creation
-2. **test_partition_creation.sh**: Tests partition creation and formatting logic (now deprecated)
-3. **create_storage_partition.sh**: Actual production script (tested successfully)
-
-## Compatibility
-
 - Only affects Orange Pi 5 variants (opi5, opi5b, opi5plus, opi5pro, opi5max, rock5c)
 - Other image builds remain unchanged
 - Conditional workflow step ensures backward compatibility

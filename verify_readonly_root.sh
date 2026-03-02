@@ -77,37 +77,21 @@ if ! grep -E '[[:space:]]/[[:space:]].*ro' "$MOUNT_POINT/etc/fstab" | grep -v '^
 fi
 echo "✓ Root filesystem configured as read-only"
 
-if ! grep -q "/mnt/photon-storage" "$MOUNT_POINT/etc/fstab"; then
-    echo "ERROR: Storage partition mount not found in fstab"
+if ! grep -q "/opt/photonvision/photon-storage" "$MOUNT_POINT/etc/fstab"; then
+    echo "ERROR: Storage partition mount not found in fstab at /opt/photonvision/photon-storage"
     exit 1
 fi
-echo "✓ Storage partition mount configured"
+echo "✓ Storage partition mount configured at /opt/photonvision/photon-storage"
 
-if ! grep -q "overlay /opt/photonvision" "$MOUNT_POINT/etc/fstab"; then
-    echo "ERROR: Overlay mount not found in fstab"
+if grep -q "overlay /opt/photonvision" "$MOUNT_POINT/etc/fstab"; then
+    echo "ERROR: Overlay mount found in fstab (should not be present in direct mount implementation)"
     exit 1
 fi
-echo "✓ Overlay mount configured"
+echo "✓ No overlay mount (correct for direct mount implementation)"
 
 echo ""
 echo "fstab entries:"
 grep -v '^#' "$MOUNT_POINT/etc/fstab" | grep -v '^$'
-
-# Check systemd service
-echo ""
-echo "=== Systemd Service ==="
-if [ ! -f "$MOUNT_POINT/etc/systemd/system/photonvision-overlay-init.service" ]; then
-    echo "ERROR: photonvision-overlay-init.service not found"
-    exit 1
-fi
-echo "✓ Systemd overlay init service exists"
-
-# Check if service is enabled
-if [ -L "$MOUNT_POINT/etc/systemd/system/multi-user.target.wants/photonvision-overlay-init.service" ]; then
-    echo "✓ Overlay init service is enabled"
-else
-    echo "WARNING: Overlay init service may not be enabled"
-fi
 
 # Check directories
 echo ""
@@ -117,6 +101,12 @@ if [ ! -d "$MOUNT_POINT/opt/photonvision" ]; then
     exit 1
 fi
 echo "✓ PhotonVision directory exists"
+
+if [ ! -d "$MOUNT_POINT/opt/photonvision/photon-storage" ]; then
+    echo "ERROR: /opt/photonvision/photon-storage mount point not found"
+    exit 1
+fi
+echo "✓ Storage mount point directory exists"
 
 if [ ! -d "$MOUNT_POINT/mnt/photon-storage" ]; then
     echo "ERROR: /mnt/photon-storage directory not found"
@@ -146,8 +136,8 @@ echo ""
 echo "Summary:"
 echo "  ✓ Storage partition created and formatted"
 echo "  ✓ Root filesystem configured as read-only"
-echo "  ✓ Overlay mount configured for /opt/photonvision"
-echo "  ✓ Systemd service configured for overlay initialization"
+echo "  ✓ Storage partition configured to mount at /opt/photonvision/photon-storage"
+echo "  ✓ PhotonVision directory structure ready"
 echo "  ✓ Directory structure correct"
 echo ""
 echo "The image is ready for deployment!"
