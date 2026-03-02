@@ -102,4 +102,8 @@ apt-get --yes -qq clean
 rm -rf /usr/share/doc
 rm -rf /usr/share/locale/
 
+# Configure read-only root filesystem with overlay mount
+chmod +x ./configure_readonly_root.sh
+./configure_readonly_root.sh
+
 umount /CIDATA
