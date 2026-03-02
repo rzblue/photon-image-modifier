@@ -128,18 +128,6 @@ PhotonVision should be configured to store all writable data in `/opt/photonvisi
 
 The rest of `/opt/photonvision/` remains read-only on the system partition.
 
-- Only affects Orange Pi 5 variants (opi5, opi5b, opi5plus, opi5pro, opi5max, rock5c)
-- Other image builds remain unchanged
-- Conditional workflow step ensures backward compatibility
-
-## First Boot Sequence
-
-1. System boots with read-only root filesystem
-2. Storage partition is mounted at `/mnt/photon-storage`
-3. `photonvision-overlay-init.service` runs and creates overlay directories if they don't exist
-4. Overlay mount for `/opt/photonvision` is established
-5. PhotonVision starts and can read/write to `/opt/photonvision` (writes go to storage partition)
-
 ## Future Improvements
 
 - Add automatic expansion of storage partition to fill available space

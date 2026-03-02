@@ -108,12 +108,6 @@ if [ ! -d "$MOUNT_POINT/opt/photonvision/photon-storage" ]; then
 fi
 echo "✓ Storage mount point directory exists"
 
-if [ ! -d "$MOUNT_POINT/mnt/photon-storage" ]; then
-    echo "ERROR: /mnt/photon-storage directory not found"
-    exit 1
-fi
-echo "✓ Storage mount point exists"
-
 # Check PhotonVision installation
 echo ""
 echo "=== PhotonVision Installation ==="
