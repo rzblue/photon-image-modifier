@@ -6,8 +6,15 @@
 
 set -euo pipefail
 
+# Constants
+SECTOR_SIZE=512                    # Sector size in bytes
+SECTORS_PER_MB=2048                # Number of sectors per MB (for 512-byte sectors)
+DEFAULT_STORAGE_SIZE_MB=512        # Default storage partition size (must match workflow)
+ROOTPARTITION=2                    # Root partition number (standard for OPi5 images)
+STORAGE_PARTITION=3                # Storage partition number
+
 IMAGE_FILE="$1"
-STORAGE_SIZE_MB="${2:-512}"  # Default 512MB
+STORAGE_SIZE_MB="${2:-$DEFAULT_STORAGE_SIZE_MB}"
 
 if [ ! -f "$IMAGE_FILE" ]; then
     echo "ERROR: Image file not found: $IMAGE_FILE"
@@ -17,6 +24,7 @@ fi
 echo "=== Creating Storage Partition ==="
 echo "Image: $IMAGE_FILE"
 echo "Storage partition size: ${STORAGE_SIZE_MB}MB"
+echo "Root partition: $ROOTPARTITION (assumed for Orange Pi 5 images)"
 echo ""
 
 # Attach the image as a loop device
@@ -41,9 +49,12 @@ echo ""
 echo "Current partition layout:"
 sudo parted -m --script "$LOOPDEV" unit MB print
 
-# Find the root partition (assume partition 2)
-ROOTPARTITION=2
-STORAGE_PARTITION=$((ROOTPARTITION + 1))
+# Verify root partition exists
+if ! sudo parted -m --script "$LOOPDEV" unit s print | grep -q "^${ROOTPARTITION}:"; then
+    echo "ERROR: Root partition ${ROOTPARTITION} not found in image"
+    echo "This script assumes partition ${ROOTPARTITION} is the root partition"
+    exit 1
+fi
 
 # Get the end of the root partition in sectors
 ROOTFS_PARTEND_SECTOR=$(sudo parted -m --script "$LOOPDEV" unit s print | grep "^${ROOTPARTITION}:" | awk -F ":" '{print $3}' | tr -d 's')
@@ -53,13 +64,13 @@ if [ -z "$ROOTFS_PARTEND_SECTOR" ]; then
     exit 1
 fi
 
-echo "Root partition ends at sector: $ROOTFS_PARTEND_SECTOR"
+echo "Root partition ${ROOTPARTITION} ends at sector: $ROOTFS_PARTEND_SECTOR"
 
-# Calculate start of storage partition (1MB = 2048 sectors after root partition for alignment)
-STORAGE_PARTSTART=$((ROOTFS_PARTEND_SECTOR + 2048))
+# Calculate start of storage partition (1MB after root partition for alignment)
+STORAGE_PARTSTART=$((ROOTFS_PARTEND_SECTOR + SECTORS_PER_MB))
 
-# Calculate size in sectors (2048 sectors per MB, assuming 512-byte sectors)
-STORAGE_SIZE_SECTORS=$((STORAGE_SIZE_MB * 2048))
+# Calculate size in sectors
+STORAGE_SIZE_SECTORS=$((STORAGE_SIZE_MB * SECTORS_PER_MB))
 STORAGE_PARTEND=$((STORAGE_PARTSTART + STORAGE_SIZE_SECTORS))
 
 # Create the storage partition
@@ -102,13 +113,14 @@ echo "  Label: $FS_LABEL"
 echo ""
 echo "Extending image file..."
 
-# Calculate new image size (add some padding for GPT secondary header if needed)
-NEW_SIZE_SECTORS=$((STORAGE_PARTEND + 2048))
-NEW_SIZE_BYTES=$((NEW_SIZE_SECTORS * 512))
+# Calculate new image size (add padding for alignment and GPT if needed)
+NEW_SIZE_SECTORS=$((STORAGE_PARTEND + SECTORS_PER_MB))
+NEW_SIZE_BYTES=$((NEW_SIZE_SECTORS * SECTOR_SIZE))
 
 if [ "$PART_TYPE" = "gpt" ]; then
-    # Add space for secondary GPT (33 sectors = 16896 bytes)
-    NEW_SIZE_BYTES=$((NEW_SIZE_BYTES + 16896))
+    # Add space for secondary GPT (33 sectors)
+    GPT_SECTORS=33
+    NEW_SIZE_BYTES=$((NEW_SIZE_BYTES + (GPT_SECTORS * SECTOR_SIZE)))
 fi
 
 # Detach loop device before extending file

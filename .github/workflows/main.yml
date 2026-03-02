@@ -114,6 +114,7 @@ jobs:
 
     - name: Create storage partition for Orange Pi 5
       # Add storage partition for read-only root filesystem with overlay
+      # Note: The 512MB size here must match DEFAULT_STORAGE_SIZE_MB in create_storage_partition.sh
       if: ${{ matrix.script == './install_opi5.sh' }}
       run: |
         echo "Creating storage partition for Orange Pi 5 image"
